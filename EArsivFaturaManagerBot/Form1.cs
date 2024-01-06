@@ -10,6 +10,14 @@ using System.Windows.Forms;
 using SeleniumExtras.WaitHelpers;
 using NPOI.SS.UserModel;
 using NPOI.XSSF.UserModel;
+using System.IO.Compression;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+using System.Xml.Linq;
+using System.Linq;
+using System.Globalization;
+
 namespace EArsivFaturaManagerBot
 {
     public partial class Form1 : Form
@@ -21,10 +29,16 @@ namespace EArsivFaturaManagerBot
         static string FinishDate = string.Empty;
         static string VKN = string.Empty;
         public static string[,] UserList;
-
         private bool IsExcelFileSelected = false;
         private bool IsStartDateSelected = false;
         private bool IsFinishDateSelected = false;
+        //xmltoexcel
+        static string startFolder = Directory.GetCurrentDirectory(); // Programın başlangıç dizini
+        static string sourceFolder = Path.Combine(startFolder, "Faturalar"); // Kaynak klasör
+        static string targetFolder = Path.Combine(startFolder, "xmls"); // Hedef klasör
+        static List<string> XmlFiles;
+
+        
 
         public Form1()
         {
@@ -36,8 +50,9 @@ namespace EArsivFaturaManagerBot
            
             FormatDtp(dtpStartDate, DateFormat);
             FormatDtp(dtpFinishDate, DateFormat);
+            bListele.Enabled = false;
 
-            
+
         }
 
 
@@ -45,7 +60,8 @@ namespace EArsivFaturaManagerBot
         {
             CreateTxtFile();
             string chromeDriverPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "chromedriver.exe");
-            ChromeOptions chromeOptions = new ChromeOptions();
+            ChromeOptions chromeOptions = new ChromeOptions(); 
+
 
             ChromeDriverService service = ChromeDriverService.CreateDefaultService(chromeDriverPath);
             service.HideCommandPromptWindow = true;
@@ -328,7 +344,6 @@ namespace EArsivFaturaManagerBot
             {
 
                 ExcelFilePath = dosyaSec.FileName;
-                lAccountCounter.Text = ExcelFilePath;
                 IsExcelFileSelected = true;
                 CheckBotButtonState();
             }
@@ -363,8 +378,9 @@ namespace EArsivFaturaManagerBot
             }
             else
             {
-                tbVKN.Enabled = false;
                 tbVKN.Clear();
+                tbVKN.Enabled = false;
+                
 
             }
 
@@ -373,6 +389,291 @@ namespace EArsivFaturaManagerBot
         private void tbVKN_TextChanged(object sender, EventArgs e)
         {
             VKN = tbVKN.Text;
+        }
+
+        private void bAyıkla_Click(object sender, EventArgs e)
+        {
+            bKaydet.Enabled = true;
+            if (!Directory.Exists(sourceFolder))
+            {
+                Directory.CreateDirectory(sourceFolder);
+            }
+            string[] zipFiles = Directory.GetFiles(sourceFolder, "*.zip");
+
+
+            if (!Directory.Exists(targetFolder))
+            {
+                Directory.CreateDirectory(targetFolder); // "xmls" klasörünü oluştur
+            }
+
+            foreach (string zipFile in zipFiles)
+            {
+                using (ZipArchive archive = ZipFile.OpenRead(zipFile))
+                {
+                    foreach (var entry in archive.Entries)
+                    {
+                        if (entry.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string destinationPath = Path.Combine(targetFolder, Path.GetFileName(entry.FullName));
+                            if (!File.Exists(destinationPath))
+                            {
+                                entry.ExtractToFile(destinationPath);
+                            }
+
+
+                        }
+                    }
+                }
+            }
+            MessageBox.Show("XML dosyaları başarıyla çıkartıldı ve 'xmls' klasörüne yerleştirildi.");
+            bListele.Enabled = true;
+        }
+
+        private void bListele_Click(object sender, EventArgs e)
+        {
+
+            lbFaturalar.Items.Clear();
+            if (Directory.Exists(targetFolder))
+            {
+                string[] xmlFiles = Directory.GetFiles(targetFolder, "*.xml");
+                XmlFiles = new List<string>();
+                if (xmlFiles.Length > 0)
+                {
+                    foreach (string xmlFile in xmlFiles)
+                    {
+                        string fileName = Path.GetFileNameWithoutExtension(xmlFile); // Dosya adını al (uzantısız)
+                        XmlFiles.Add(xmlFile);
+                        lbFaturalar.Items.Add(fileName); // Dosya yollarını bir ListBox veya başka bir kontrolde listeleyebilirsiniz.
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("Klasörde .xml uzantılı dosya bulunamadı.");
+                }
+            }
+            else
+            {
+                MessageBox.Show("Belirtilen klasör bulunamadı.");
+            }
+            lXmlSayisi.Text = lbFaturalar.Items.Count.ToString();
+        }
+        private Fatura GetFatura(XNamespace cac, XNamespace cbc, XDocument xmlDoc) ///!!!sil
+        {
+
+            Fatura fatura = new Fatura();
+            fatura.FaturaHatlari = new List<FaturaHatti>();
+            var supplierParty = xmlDoc.Descendants(cac + "AccountingSupplierParty").FirstOrDefault();
+            var customerParty = xmlDoc.Descendants(cac + "AccountingCustomerParty").FirstOrDefault();
+            fatura.tevkifatTutarı = "0";
+            fatura.faturaNo = (string)xmlDoc.Descendants(cbc + "ID").FirstOrDefault();
+            fatura.faturaTarihi = (string)xmlDoc.Descendants(cbc + "IssueDate").FirstOrDefault();
+            DateTime parsedDate = DateTime.Parse(fatura.faturaTarihi);
+            string formattedDate = parsedDate.ToString("dd.MM.yyyy"); ///!!!!!!!!
+            fatura.faturaTarihi = formattedDate;
+            fatura.faturaTipi = (string)xmlDoc.Descendants(cbc + "InvoiceTypeCode").FirstOrDefault();
+            fatura.supplierAd = (string)supplierParty.Descendants(cac + "Person").Descendants(cbc + "FirstName").FirstOrDefault();
+            fatura.supplierSoyad = (string)supplierParty.Descendants(cac + "Person").Descendants(cbc + "FamilyName").FirstOrDefault();
+            fatura.supplierTcKimlikNo = (string)supplierParty.Descendants(cac + "PartyIdentification")
+                .Where(e => e.Element(cbc + "ID")?.Attribute("schemeID")?.Value == "TCKN")
+                .Select(e => (string)e.Element(cbc + "ID")).FirstOrDefault();
+            fatura.customerCompanyName = (string)customerParty.Descendants(cac + "PartyName").Descendants(cbc + "Name").FirstOrDefault();
+            fatura.customerVKN = (string)customerParty.Descendants(cac + "PartyIdentification")
+                .Where(e => e.Element(cbc + "ID")?.Attribute("schemeID")?.Value == "VKN")
+                .Select(e => (string)e.Element(cbc + "ID")).FirstOrDefault();
+
+            foreach (var invoiceLine in xmlDoc.Descendants(cac + "InvoiceLine"))
+            {
+                FaturaHatti faturaHatti = new FaturaHatti();
+                faturaHatti.Id = (string)invoiceLine.Descendants(cbc + "ID").FirstOrDefault();
+                faturaHatti.Name = (string)invoiceLine.Descendants(cac + "Item").Descendants(cbc + "Name").FirstOrDefault();
+                faturaHatti.TotalAmount = (string)invoiceLine.Descendants(cac + "TaxSubtotal").Descendants(cbc + "TaxableAmount").FirstOrDefault();
+                var withholdingTaxTotal = invoiceLine.Descendants(cac + "WithholdingTaxTotal").FirstOrDefault();
+                if (withholdingTaxTotal != null)
+                {
+                    faturaHatti.Tevkifat = true;
+                    fatura.tevkifatTutarı = (Convert.ToDouble(fatura.tevkifatTutarı, new CultureInfo("en-US")) + Convert.ToDouble(faturaHatti.TotalAmount, new CultureInfo("en-US"))).ToString(new CultureInfo("en-US"));
+                }
+                else
+                {
+                    faturaHatti.Tevkifat = false;
+                }
+
+                fatura.FaturaHatlari.Add(faturaHatti);
+            }
+            fatura.taxInclusiveAmount = (string)xmlDoc.Descendants(cbc + "TaxInclusiveAmount").FirstOrDefault();
+            fatura.payableAmount = (string)xmlDoc.Descendants(cbc + "PayableAmount").FirstOrDefault();
+            fatura.kdvUcreti = (string)xmlDoc.Descendants(cac + "WithholdingTaxTotal").Descendants(cbc + "TaxAmount").FirstOrDefault();
+            fatura.kdvDahilIslemUcreti = (string)xmlDoc.Descendants(cac + "WithholdingTaxTotal").Descendants(cac + "TaxSubtotal").Descendants(cbc + "TaxableAmount").FirstOrDefault();
+            fatura.kdvTevkifatUcreti = (string)xmlDoc.Descendants(cac + "WithholdingTaxTotal").Descendants(cbc + "TaxAmount").FirstOrDefault();
+            fatura.hesaplananKDV = (string)xmlDoc.Descendants(cac + "TaxTotal").Descendants(cac + "TaxSubtotal").Descendants(cbc + "TaxAmount").Where(element => (string)element.Attribute("currencyID") == "TRY").FirstOrDefault();
+            fatura.toplamUcret = (string)xmlDoc.Descendants(cac + "TaxTotal").Descendants(cac + "TaxSubtotal").Descendants(cbc + "TaxableAmount").Where(element => (string)element.Attribute("currencyID") == "TRY").FirstOrDefault();
+            return fatura;
+        }
+
+        private void bKaydet_Click(object sender, EventArgs e)
+        {
+            string filePath = Path.Combine(startFolder, "Faturalar.xlsx");
+
+            using (var document = SpreadsheetDocument.Create(filePath, SpreadsheetDocumentType.Workbook))
+            {
+                // Çalışma kitabı ve çalışma sayfasını oluşturun
+                var workbookPart = document.AddWorkbookPart();
+                workbookPart.Workbook = new Workbook();
+
+                var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+                worksheetPart.Worksheet = new Worksheet(new SheetData());
+
+                // Çalışma sayfasını çalışma kitabına ekleyin
+                var sheets = document.WorkbookPart.Workbook.AppendChild(new Sheets());
+                sheets.AppendChild(new Sheet()
+                {
+                    Id = document.WorkbookPart.GetIdOfPart(worksheetPart),
+                    SheetId = 1,
+                    Name = "Faturalar"
+                });
+
+                // Çalışma sayfasının verilerini alın
+                var sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>();
+
+                // Başlık satırı oluşturun ve verileri ekleyin
+                var row = new Row();
+                row.Append(
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA DÜZENLEYEN UNVAN") },
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA DÜZENLEYEN VERGİ KİMLİK NO/TC KİMLİK NO") },
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA TARİHİ") },
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA NO") },
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA TİPİ") },
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("ADINA FATURA DÜZENLENEN UNVAN") },
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("ADINA FATURA DÜZENLENEN VERGİ KİMLİK NO/TC KİMLİK NO") }
+                );
+                for (int i = 0; i < 10; i++)
+                {
+                    row.Append(
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("MAL / HİZMET ADI  " + (i + 1)) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("MAL / HİZMET TOPLAM TUTARI " + (i + 1)) }
+                        );
+                }
+                row.Append(
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("HESAPLANAN KDV") },
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("HESAPLANAN KDV TEVKİFAT") },
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("TEVKİFATA TABİ İŞLEM TUTARI") },
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("VERGİLER DAHİL TOPLAM TUTAR") },
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("MAL/HİZMET TOPLAM TUTAR") },
+                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("ÖDENECEK TUTAR") }
+                );
+
+                // Başlık satırını çalışma sayfasına ekleyin
+                sheetData.AppendChild(row);
+
+                // Veri satırı oluşturun ve verileri ekleyin
+                for (int i = 0; i < XmlFiles.Count; i++)
+                {
+
+
+                    XDocument xmlDoc = XDocument.Load(XmlFiles[i]);
+                    XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+                    XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+                    Fatura fatura = GetFatura(cac, cbc, xmlDoc);
+
+                    //Excele ekle
+
+                    row = new Row();
+                    row.Append(
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.supplierAd + " " + fatura.supplierSoyad) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.supplierTcKimlikNo) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.faturaTarihi) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.faturaNo) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.faturaTipi) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.customerCompanyName) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.customerVKN) }
+                    );
+                    for (int j = 0; j < fatura.FaturaHatlari.Count; j++)
+                    {
+                        row.Append(
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.FaturaHatlari[j].Name) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.FaturaHatlari[j].TotalAmount) }
+                        );
+                    }
+                    if (fatura.FaturaHatlari.Count < 10)
+                    {
+                        int counter = 10 - fatura.FaturaHatlari.Count;
+                        for (int j = 0; j < counter; j++)
+                        {
+                            row.Append(
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("") },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("") }
+                        );
+                        }
+                    }
+                    row.Append(
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.hesaplananKDV) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.kdvTevkifatUcreti) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.tevkifatTutarı) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.taxInclusiveAmount) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.toplamUcret) },
+                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.payableAmount) }
+                    );
+
+                    // Veri satırını çalışma sayfasına ekleyin
+                    sheetData.AppendChild(row);
+
+
+                }
+
+
+
+            }
+            MessageBox.Show("Excel dosyası oluşturuldu.");
+        }
+
+        private void lbFaturalar_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+
+            List<FaturaHatti> Faturalar = new List<FaturaHatti>();
+            XDocument xmlDoc = XDocument.Load(XmlFiles[lbFaturalar.SelectedIndex]);
+            XNamespace cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+            XNamespace cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+            Fatura fatura = GetFatura(cac, cbc, xmlDoc); ///!!!sil
+
+            lFaturaNo.Text = fatura.faturaNo;
+            lFaturaTip.Text = fatura.faturaTipi;
+            lFaturaTarih.Text = fatura.faturaTarihi;
+
+            lTedarikciUnvan.Text = fatura.supplierAd + " " + fatura.supplierSoyad;
+            lTedarikciTC.Text = fatura.supplierTcKimlikNo;
+
+            lMusteriUnvan.Text = fatura.customerCompanyName;
+            lMusteriVKN.Text = fatura.customerVKN;
+
+            lbFaturaHatti.Items.Clear();
+            foreach (var item in fatura.FaturaHatlari)
+            {
+                lbFaturaHatti.Items.Add(item.Id + "| " + item.Name + "| " + item.TotalAmount + " Tl");
+            }
+
+            lVergiDahilToplam.Text = fatura.taxInclusiveAmount;
+            lToplamOdenecek.Text = fatura.payableAmount;
+            lTevkifataTabiTutar.Text = fatura.tevkifatTutarı;
+            lHesaplananKdvTevkifat.Text = fatura.kdvTevkifatUcreti;
+            lHesaplananKDV.Text = fatura.hesaplananKDV;
+            lMalHizmetToplam.Text = fatura.toplamUcret;
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (Directory.Exists(targetFolder))
+            {
+                try
+                {
+                    Directory.Delete(targetFolder, true); // Klasörü ve içeriğini sil
+                    MessageBox.Show("xmls klasörü silindi");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Hata oluştu: " + ex.Message);
+                }
+            }
         }
     }
 }

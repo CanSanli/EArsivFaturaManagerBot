@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.33130.400
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EArsivFaturaManagerBot", "EArsivFaturaManagerBot\EArsivFaturaManagerBot.csproj", "{9099D886-C1CE-44F0-9D9A-9D8AA2980E69}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EArsivFaturaManagerBot", "EArsivFaturaManagerBot\EArsivFaturaManagerBot.csproj", "{9099D886-C1CE-44F0-9D9A-9D8AA2980E69}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "EArsivFaturaManagerBotSetup", "EArsivFaturaManagerBotSetup\EArsivFaturaManagerBotSetup.vdproj", "{95A02FDB-B03E-4F47-8F97-9E749866FFBA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,8 @@ Global
 		{9099D886-C1CE-44F0-9D9A-9D8AA2980E69}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9099D886-C1CE-44F0-9D9A-9D8AA2980E69}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9099D886-C1CE-44F0-9D9A-9D8AA2980E69}.Release|Any CPU.Build.0 = Release|Any CPU
+		{95A02FDB-B03E-4F47-8F97-9E749866FFBA}.Debug|Any CPU.ActiveCfg = Debug
+		{95A02FDB-B03E-4F47-8F97-9E749866FFBA}.Release|Any CPU.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

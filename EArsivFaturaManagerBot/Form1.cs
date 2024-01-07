@@ -17,6 +17,13 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using System.Xml.Linq;
 using System.Linq;
 using System.Globalization;
+using System.Diagnostics;
+
+//OpenQA.Selenium.Chrome
+//SeleniumExtras
+//NPOI
+//OpenXML
+//XML Linq
 
 namespace EArsivFaturaManagerBot
 {
@@ -33,12 +40,12 @@ namespace EArsivFaturaManagerBot
         private bool IsStartDateSelected = false;
         private bool IsFinishDateSelected = false;
         //xmltoexcel
-        static string startFolder = Directory.GetCurrentDirectory(); // Programın başlangıç dizini
+        public static string startFolder = Directory.GetCurrentDirectory(); // Programın başlangıç dizini
         static string sourceFolder = Path.Combine(startFolder, "Faturalar"); // Kaynak klasör
         static string targetFolder = Path.Combine(startFolder, "xmls"); // Hedef klasör
         static List<string> XmlFiles;
 
-        
+
 
         public Form1()
         {
@@ -47,7 +54,7 @@ namespace EArsivFaturaManagerBot
 
         private void Form1_Load(object sender, EventArgs e)
         {
-           
+
             FormatDtp(dtpStartDate, DateFormat);
             FormatDtp(dtpFinishDate, DateFormat);
             bListele.Enabled = false;
@@ -60,7 +67,7 @@ namespace EArsivFaturaManagerBot
         {
             CreateTxtFile();
             string chromeDriverPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "chromedriver.exe");
-            ChromeOptions chromeOptions = new ChromeOptions(); 
+            ChromeOptions chromeOptions = new ChromeOptions();
 
 
             ChromeDriverService service = ChromeDriverService.CreateDefaultService(chromeDriverPath);
@@ -75,10 +82,10 @@ namespace EArsivFaturaManagerBot
 
             if (UserList != null)
             {
-               
+
                 for (int i = 0; i < UserList.GetLength(0); i++)
                 {
-                    lAccountCounter.Text = (i+1) + "/" + UserList.GetLength(0);
+                    lAccountCounter.Text = (i + 1) + "/" + UserList.GetLength(0);
 
                     string username = UserList[i, 0];
 
@@ -105,7 +112,7 @@ namespace EArsivFaturaManagerBot
 
                     if (driver.Url.Contains("https://earsivportal.efatura.gov.tr/index.jsp"))
                     {
-                        MessageBox.Show("Giriş Başarılı", "Oturum Açıldı", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
                         System.Threading.Thread.Sleep(2000);
                         elementLocator = By.Id("gen__1006");
                         wait.Until(ExpectedConditions.ElementIsVisible(elementLocator));
@@ -177,7 +184,7 @@ namespace EArsivFaturaManagerBot
                     }
                     else
                     {
-                        MessageBox.Show($"Giriş başarısız! Kullanıcı verileri: {username} , {password}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
                         WriteTxtFile(username + " " + password);
                         driver.Close();
                     }
@@ -222,7 +229,8 @@ namespace EArsivFaturaManagerBot
                 foreach (var cell in cells)
                 {
 
-                    if (cell.GetAttribute("class") == "csc-table-select" && iptalCheck.Text == "----------" && deletedCheck.GetAttribute("class") != "fa fa-remove")
+                    if (cell.GetAttribute("class") == "csc-table-select" && iptalCheck.Text == "----------"
+                        && deletedCheck.GetAttribute("class") != "fa fa-remove")
                     {
                         if (VKN != string.Empty && vknCheck.Text == VKN)
                         {
@@ -247,11 +255,7 @@ namespace EArsivFaturaManagerBot
                     // Burada hücre içeriğiyle yapmak istediğiniz işlemleri gerçekleştirebilirsiniz
                 }
 
-
             }
-
-
-
         }
 
         private void FormatDtp(DateTimePicker dtp, string format)
@@ -306,20 +310,14 @@ namespace EArsivFaturaManagerBot
         {
             string dosyaAdi = "BasarisizGirisler.txt";
 
-
             if (File.Exists(dosyaAdi))
             {
                 File.WriteAllText(dosyaAdi, string.Empty);
-
             }
             else
             {
                 File.Create(dosyaAdi).Close();
-
             }
-
-
-
 
         }
         public static void WriteTxtFile(string userData)
@@ -380,7 +378,7 @@ namespace EArsivFaturaManagerBot
             {
                 tbVKN.Clear();
                 tbVKN.Enabled = false;
-                
+
 
             }
 
@@ -394,12 +392,15 @@ namespace EArsivFaturaManagerBot
         private void bAyıkla_Click(object sender, EventArgs e)
         {
             bKaydet.Enabled = true;
-            if (!Directory.Exists(sourceFolder))
-            {
-                Directory.CreateDirectory(sourceFolder);
-            }
+            
             string[] zipFiles = Directory.GetFiles(sourceFolder, "*.zip");
-
+            if (zipFiles.Length==0)
+            {
+                MessageBox.Show("Faturalar klasörü boş", "Fatura Bulunamadı", MessageBoxButtons.OK,MessageBoxIcon.Error);
+                bKaydet.Enabled = false;
+                bListele.Enabled = false;
+                return;
+            }
 
             if (!Directory.Exists(targetFolder))
             {
@@ -455,6 +456,10 @@ namespace EArsivFaturaManagerBot
             {
                 MessageBox.Show("Belirtilen klasör bulunamadı.");
             }
+            if (lbFaturalar.Items.Count>0)
+            {
+                lbFaturalar.SelectedIndex = 0;
+            }
             lXmlSayisi.Text = lbFaturalar.Items.Count.ToString();
         }
         private Fatura GetFatura(XNamespace cac, XNamespace cbc, XDocument xmlDoc) ///!!!sil
@@ -491,7 +496,8 @@ namespace EArsivFaturaManagerBot
                 if (withholdingTaxTotal != null)
                 {
                     faturaHatti.Tevkifat = true;
-                    fatura.tevkifatTutarı = (Convert.ToDouble(fatura.tevkifatTutarı, new CultureInfo("en-US")) + Convert.ToDouble(faturaHatti.TotalAmount, new CultureInfo("en-US"))).ToString(new CultureInfo("en-US"));
+                    fatura.tevkifatTutarı = (Convert.ToDouble(fatura.tevkifatTutarı, new CultureInfo("en-US")) + 
+                        Convert.ToDouble(faturaHatti.TotalAmount, new CultureInfo("en-US"))).ToString(new CultureInfo("en-US"));
                 }
                 else
                 {
@@ -503,10 +509,15 @@ namespace EArsivFaturaManagerBot
             fatura.taxInclusiveAmount = (string)xmlDoc.Descendants(cbc + "TaxInclusiveAmount").FirstOrDefault();
             fatura.payableAmount = (string)xmlDoc.Descendants(cbc + "PayableAmount").FirstOrDefault();
             fatura.kdvUcreti = (string)xmlDoc.Descendants(cac + "WithholdingTaxTotal").Descendants(cbc + "TaxAmount").FirstOrDefault();
-            fatura.kdvDahilIslemUcreti = (string)xmlDoc.Descendants(cac + "WithholdingTaxTotal").Descendants(cac + "TaxSubtotal").Descendants(cbc + "TaxableAmount").FirstOrDefault();
-            fatura.kdvTevkifatUcreti = (string)xmlDoc.Descendants(cac + "WithholdingTaxTotal").Descendants(cbc + "TaxAmount").FirstOrDefault();
-            fatura.hesaplananKDV = (string)xmlDoc.Descendants(cac + "TaxTotal").Descendants(cac + "TaxSubtotal").Descendants(cbc + "TaxAmount").Where(element => (string)element.Attribute("currencyID") == "TRY").FirstOrDefault();
-            fatura.toplamUcret = (string)xmlDoc.Descendants(cac + "TaxTotal").Descendants(cac + "TaxSubtotal").Descendants(cbc + "TaxableAmount").Where(element => (string)element.Attribute("currencyID") == "TRY").FirstOrDefault();
+            fatura.kdvDahilIslemUcreti = (string)xmlDoc.Descendants(cac + "WithholdingTaxTotal")
+                .Descendants(cac + "TaxSubtotal").Descendants(cbc + "TaxableAmount").FirstOrDefault();
+            fatura.kdvTevkifatUcreti = (string)xmlDoc.Descendants(cac + "WithholdingTaxTotal")
+                .Descendants(cbc + "TaxAmount").FirstOrDefault();
+            fatura.hesaplananKDV = (string)xmlDoc.Descendants(cac + "TaxTotal").Descendants(cac + "TaxSubtotal")
+                .Descendants(cbc + "TaxAmount").Where(element => (string)element.Attribute("currencyID") == "TRY").FirstOrDefault();
+            fatura.toplamUcret = (string)xmlDoc.Descendants(cac + "TaxTotal")
+                .Descendants(cac + "TaxSubtotal").Descendants(cbc + "TaxableAmount").Where(element => 
+                (string)element.Attribute("currencyID") == "TRY").FirstOrDefault();
             return fatura;
         }
 
@@ -538,28 +549,43 @@ namespace EArsivFaturaManagerBot
                 // Başlık satırı oluşturun ve verileri ekleyin
                 var row = new Row();
                 row.Append(
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA DÜZENLEYEN UNVAN") },
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA DÜZENLEYEN VERGİ KİMLİK NO/TC KİMLİK NO") },
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA TARİHİ") },
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA NO") },
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA TİPİ") },
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("ADINA FATURA DÜZENLENEN UNVAN") },
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("ADINA FATURA DÜZENLENEN VERGİ KİMLİK NO/TC KİMLİK NO") }
+                    new Cell() { DataType = CellValues.String, CellValue = 
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA DÜZENLEYEN UNVAN") },
+                    new Cell() { DataType = CellValues.String, CellValue =
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA DÜZENLEYEN VERGİ KİMLİK NO/TC KİMLİK NO") },
+                    new Cell() { DataType = CellValues.String, CellValue =
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA TARİHİ") },
+                    new Cell() { DataType = CellValues.String, CellValue = 
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA NO") },
+                    new Cell() { DataType = CellValues.String, CellValue = 
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("FATURA TİPİ") },
+                    new Cell() { DataType = CellValues.String, CellValue = 
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("ADINA FATURA DÜZENLENEN UNVAN") },
+                    new Cell() { DataType = CellValues.String, CellValue = 
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("ADINA FATURA DÜZENLENEN VERGİ KİMLİK NO/TC KİMLİK NO") }
                 );
                 for (int i = 0; i < 10; i++)
                 {
                     row.Append(
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("MAL / HİZMET ADI  " + (i + 1)) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("MAL / HİZMET TOPLAM TUTARI " + (i + 1)) }
+                        new Cell() { DataType = CellValues.String, CellValue = 
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue("MAL / HİZMET ADI  " + (i + 1)) },
+                        new Cell() { DataType = CellValues.String, CellValue =
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue("MAL / HİZMET TOPLAM TUTARI " + (i + 1)) }
                         );
                 }
                 row.Append(
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("HESAPLANAN KDV") },
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("HESAPLANAN KDV TEVKİFAT") },
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("TEVKİFATA TABİ İŞLEM TUTARI") },
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("VERGİLER DAHİL TOPLAM TUTAR") },
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("MAL/HİZMET TOPLAM TUTAR") },
-                    new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("ÖDENECEK TUTAR") }
+                    new Cell() { DataType = CellValues.String, CellValue =
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("HESAPLANAN KDV") },
+                    new Cell() { DataType = CellValues.String, CellValue =
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("HESAPLANAN KDV TEVKİFAT") },
+                    new Cell() { DataType = CellValues.String, CellValue = 
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("TEVKİFATA TABİ İŞLEM TUTARI") },
+                    new Cell() { DataType = CellValues.String, CellValue =
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("VERGİLER DAHİL TOPLAM TUTAR") },
+                    new Cell() { DataType = CellValues.String, CellValue =
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("MAL/HİZMET TOPLAM TUTAR") },
+                    new Cell() { DataType = CellValues.String, CellValue =
+                    new DocumentFormat.OpenXml.Spreadsheet.CellValue("ÖDENECEK TUTAR") }
                 );
 
                 // Başlık satırını çalışma sayfasına ekleyin
@@ -579,19 +605,28 @@ namespace EArsivFaturaManagerBot
 
                     row = new Row();
                     row.Append(
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.supplierAd + " " + fatura.supplierSoyad) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.supplierTcKimlikNo) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.faturaTarihi) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.faturaNo) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.faturaTipi) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.customerCompanyName) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.customerVKN) }
+                        new Cell() { DataType = CellValues.String, CellValue = 
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.supplierAd + " " + fatura.supplierSoyad) },
+                        new Cell() { DataType = CellValues.String, CellValue =
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.supplierTcKimlikNo) },
+                        new Cell() { DataType = CellValues.String, CellValue =
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.faturaTarihi) },
+                        new Cell() { DataType = CellValues.String, CellValue =
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.faturaNo) },
+                        new Cell() { DataType = CellValues.String, CellValue =
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.faturaTipi) },
+                        new Cell() { DataType = CellValues.String, CellValue = 
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.customerCompanyName) },
+                        new Cell() { DataType = CellValues.String, CellValue = 
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.customerVKN) }
                     );
                     for (int j = 0; j < fatura.FaturaHatlari.Count; j++)
                     {
                         row.Append(
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.FaturaHatlari[j].Name) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.FaturaHatlari[j].TotalAmount) }
+                        new Cell() { DataType = CellValues.String, CellValue = 
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.FaturaHatlari[j].Name) },
+                        new Cell() { DataType = CellValues.String, CellValue = 
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.FaturaHatlari[j].TotalAmount) }
                         );
                     }
                     if (fatura.FaturaHatlari.Count < 10)
@@ -600,18 +635,26 @@ namespace EArsivFaturaManagerBot
                         for (int j = 0; j < counter; j++)
                         {
                             row.Append(
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("") },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("") }
+                        new Cell() { DataType = CellValues.String, CellValue =
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue("") },
+                        new Cell() { DataType = CellValues.String, CellValue = 
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue("") }
                         );
                         }
                     }
                     row.Append(
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.hesaplananKDV) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.kdvTevkifatUcreti) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.tevkifatTutarı) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.taxInclusiveAmount) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.toplamUcret) },
-                        new Cell() { DataType = CellValues.String, CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.payableAmount) }
+                        new Cell() { DataType = CellValues.String, CellValue =
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.hesaplananKDV) },
+                        new Cell() { DataType = CellValues.String, CellValue = 
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.kdvTevkifatUcreti) },
+                        new Cell() { DataType = CellValues.String, CellValue = 
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.tevkifatTutarı) },
+                        new Cell() { DataType = CellValues.String, CellValue =
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.taxInclusiveAmount) },
+                        new Cell() { DataType = CellValues.String, CellValue = 
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.toplamUcret) },
+                        new Cell() { DataType = CellValues.String, CellValue = 
+                        new DocumentFormat.OpenXml.Spreadsheet.CellValue(fatura.payableAmount) }
                     );
 
                     // Veri satırını çalışma sayfasına ekleyin
@@ -674,6 +717,17 @@ namespace EArsivFaturaManagerBot
                     Console.WriteLine("Hata oluştu: " + ex.Message);
                 }
             }
+        }
+
+        private void bFaturalarKlasoru_Click(object sender, EventArgs e)
+        {
+            if (!Directory.Exists(sourceFolder))
+            {
+                Directory.CreateDirectory(sourceFolder);
+            }
+            Process.Start("explorer.exe",sourceFolder);
+            bAyıkla.Enabled = true;
+            bListele.Enabled = true;
         }
     }
 }
